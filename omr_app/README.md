@@ -1,117 +1,61 @@
-# OMR – NCEQ Assessment (V1/V2/V3)
+# Automated MCQ Grading - OMR
 
-This repo turns your Jupyter notebooks into a Python app with a simple UI (Streamlit or Gradio).
+This project is an automated MCQ grading system using Optical Mark Recognition (OMR) and a Streamlit web interface. It allows you to upload scanned answer sheets, templates, and answer keys, and automatically grades student responses.
 
-## Structure
+## Features
+
+- Upload template, key, and student answer sheets
+- Automatic detection of answer bubbles using Hough Circle Transform
+- Robust row grouping with DBSCAN clustering
+- Adaptive thresholding for marked/unmarked bubble detection
+- Visual feedback: detected circles are shown on all sheets
+- Per-question and total score reporting
+- Easy-to-use Streamlit UI
+
+## Project Structure
 
 ```
 omr_app/
-├─ app_streamlit.py         # Streamlit UI
-├─ app_gradio.py            # Gradio UI
-├─ requirements.txt
-├─ README.md
-└─ omr_core/
-   ├─ __init__.py
-   ├─ utils.py              # shared helpers (image I/O, small utils)
-   ├─ v1.py                 # paste functions from imageProcessV1.ipynb
-   ├─ v2.py                 # paste functions from imageProcessV2.ipynb
-   └─ v3.py                 # paste functions from imageProcessV3/withoutTemplateV3
+├── main.py            # Streamlit UI
+├── omr_core.py        # OMR logic (preprocessing, detection, grouping, grading)
+├── requirements.txt   # Python dependencies
+├── README.md          # Project documentation
 ```
 
-## How to use
+## Installation
 
-1. **Install dependencies**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+1. Clone the repository:
+   ```
+   git clone https://github.com/razilahamed/Automated-MCQ-Grading---OMR.git
+   cd Automated-MCQ-Grading---OMR/omr_app
+   ```
+2. Install dependencies:
+   ```
    pip install -r requirements.txt
    ```
 
-2. **Paste your logic**
-   - Open `omr_core/v1.py`, `v2.py`, `v3.py`.
-   - Replace the placeholder `process_v*` bodies with your real notebook functions (cleaned into pure Python).
-   - Return this dict structure:
-     ```python
-     {
-       "result": {
-         "version": "vX",
-         "score": int,
-         "total": int,
-         "decisions": [ ... ],   # any per-question details you want
-         "meta": {...}
-       },
-       "debug_images": {
-         "stage_name": np.ndarray (RGB),
-         ...
-       }
-     }
-     ```
+## Usage
 
-3. **Run Streamlit UI**
-   ```bash
-   streamlit run app_streamlit.py
+1. Run the Streamlit app:
    ```
-
-   Or **run Gradio UI**:
-   ```bash
-   python app_gradio.py
+   streamlit run main.py
    ```
+2. In the web UI:
+   - Set the number of questions and options
+   - Upload the template sheet (blank OMR), answer key sheet, and student sheet
+   - Click 'Grade' to process and view results
+   - See detected circles and grading feedback for each sheet
 
-## Tips for migrating from notebooks
+## How It Works
 
-- Move helper cells into `utils.py`.
-- Keep pure functions (no global state, no cv2.imshow/plt.show inside core functions).
-- Make sure images returned in `debug_images` are **RGB** numpy arrays (H, W, 3) so the UIs can display them cleanly.
-- If V3 is template-free, keep `template_bytes` but simply ignore it inside `process_v3`.
+- **Template Calibration:** Detects bubbles in the template to calibrate circle size and spacing
+- **Student/Key Detection:** Uses template parameters to robustly detect bubbles in student and key sheets
+- **Row Grouping:** DBSCAN clusters bubbles into rows, tolerant to noise/skew
+- **Mark Detection:** Adaptive thresholding based on template statistics
+- **Scoring:** Compares student answers to key and reports results
 
-## Packaging (optional)
+## Troubleshooting
 
-If you want to install as a package later:
-```bash
-pip install -e .
-```
-and create a minimal `pyproject.toml` with `project` metadata.
-
-
-## Providing the answer key
-
-You need an answer key to *grade* (compute correctness). Supply it via the UI in one of these formats:
-
-- **Whitespace list**: `A B C D A C ...` → Q1='A', Q2='B', ...
-- **CSV**:
-  ```csv
-  q,correct
-  1,A
-  2,B
-  3,D
-  ```
-- **JSON** (supports multi-correct):
-  ```json
-  {"1":"A","2":["B","D"],"3":"C"}
-  ```
-
-The pipeline should return detected choices per question like:
-```python
-{
-  "result": {
-    "version": "vX",
-    "detected": {
-      "questions": {
-        "1": {"chosen": ["A"], "conf": 0.95},
-        "2": {"chosen": ["B","D"], "conf": 0.88}
-      }
-    }
-  }
-}
-```
-If your function instead returns `{"questions": ...}` at the top level, the UI will still find it.
-
-
-### Using a scanned teacher **Key Sheet**
-Both UIs can derive the answer key from a scanned key sheet:
-
-- Upload the **Key Sheet** image (filled with correct bubbles).
-- Enable **"Derive key from Key Sheet"** (Gradio) or select **"Derive from Key Sheet"** (Streamlit).
-- The app runs the same detection pipeline on the key sheet and converts chosen bubbles to the answer key.
-
-> Tip: Keep the key sheet printed on the same layout as student sheets to avoid alignment/offset issues.
+- If circles are not detected, check image quality and try adjusting the number of questions/options
+- Make sure uploaded images are clear, high-contrast scans
+- For best results, use the same template layout for all sheets
